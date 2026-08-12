@@ -49,7 +49,7 @@ class HttpInstrumentation
                 $method = $request?->method();
                 /** @psalm-suppress ArgumentTypeCoercion */
                 $builder = $instrumentation->tracer()
-                    ->spanBuilder($method ? $request?->method() . ' ' . $parsedUrl['path'] : '')
+                    ->spanBuilder($method ? $request?->method() . ' ' . $request->path() : '')
                     ->setSpanKind(SpanKind::KIND_SERVER)
                     ->setAttribute(TraceAttributes::CODE_FUNCTION, $function)
                     ->setAttribute(TraceAttributes::CODE_NAMESPACE, $class)

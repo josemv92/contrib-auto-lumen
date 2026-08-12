@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use OpenTelemetry\Contrib\Instrumentation\Lumen\LumenInstrumentation;
-use OpenTelemetry\SDK\Resource\Detectors\Composer;
 use OpenTelemetry\SDK\Sdk;
 
 if (class_exists(Sdk::class) && Sdk::isInstrumentationDisabled(LumenInstrumentation::NAME) === true) {
@@ -15,9 +14,5 @@ if (extension_loaded('opentelemetry') === false) {
 
     return;
 }
-
-$composerAttributes = new Composer();
-$serviceName = $composerAttributes->getResource()->getAttributes()->get('service.name');
-putenv('OTEL_SERVICE_NAME=' . $serviceName);
 
 LumenInstrumentation::register();
