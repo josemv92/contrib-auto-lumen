@@ -30,21 +30,15 @@ class LumenInstrumentation
     {
         $instrumentation = new CachedInstrumentation('io.opentelemetry.contrib.php.lumen');
 
+        Hooks\Illuminate\Console\Command::hook($instrumentation);
+        Hooks\Illuminate\Contracts\Console\Kernel::hook($instrumentation);
+        Hooks\Illuminate\Contracts\Queue\Queue::hook($instrumentation);
+        Hooks\Illuminate\Queue\SyncQueue::hook($instrumentation);
+        Hooks\Illuminate\Database\Eloquent\Model::hook($instrumentation);
         Hooks\Illuminate\Foundation\Application::hook($instrumentation);
-        // hook(
-        //     Application::class,
-        //     '__construct',
-        //     post: static function (Application $application, array $params, mixed $returnValue, ?Throwable $exception) use ($instrumentation) {
-        //         self::registerWatchers($application, new CacheWatcher());
-        //         self::registerWatchers($application, new ClientRequestWatcher($instrumentation));
-        //         self::registerWatchers($application, new ExceptionWatcher());
-        //         self::registerWatchers($application, new LogWatcher());
-        //         self::registerWatchers($application, new QueryWatcher($instrumentation));
-        //     },
-        // );
-
-        // ConsoleInstrumentation::register($instrumentation);
-        // HttpInstrumentation::register($instrumentation);
+        Hooks\Illuminate\Queue\Queue::hook($instrumentation);
+        Hooks\Illuminate\Queue\Worker::hook($instrumentation);
+        HttpInstrumentation::register($instrumentation);
     }
 
     public static function shouldTraceCli(): bool
