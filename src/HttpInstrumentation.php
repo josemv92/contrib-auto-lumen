@@ -151,10 +151,10 @@ class HttpInstrumentation
         $method = $request->method();
         $path = $request->path();
 
-        $key = "{$method}/{$path}";
+        $key = str_ireplace('//', '/', "{$method}/{$path}");
         $route = $app->router->getRoutes()[$key] ?? null;
         return $route
             ? explode('@', $route['action']['uses'])
-            : [];
+            : [null, null];
     }
 }
