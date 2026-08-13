@@ -43,13 +43,14 @@ class HttpInstrumentation
 
         hook(
             Application::class,
-            'run',
+            'dispatch',
             pre: static function (Application $app, array $params, string $class, string $function, ?string $filename, ?int $lineno) use ($instrumentation, $request) {
                 $parsedUrl = collect(parse_url($request->url()));
                 $method = $request?->method();
+                [$class, $function] = self::resolveAction($app, $request);
                 /** @psalm-suppress ArgumentTypeCoercion */
                 $builder = $instrumentation->tracer()
-                    ->spanBuilder($method ? $request?->method() . ' ' . $parsedUrl['path'] : '')
+                    ->spanBuilder($method ? $request?->method() . ' ' . $request->path() : '')
                     ->setSpanKind(SpanKind::KIND_SERVER)
                     ->setAttribute(TraceAttributes::CODE_FUNCTION, $function)
                     ->setAttribute(TraceAttributes::CODE_NAMESPACE, $class)
@@ -82,6 +83,7 @@ class HttpInstrumentation
             },
             post: static function (Application $app, array $params, ?Response $response, ?Throwable $exception) {
                 $scope = Context::storage()->scope();
+
                 if (!$scope) {
                     return;
                 }
@@ -93,6 +95,7 @@ class HttpInstrumentation
                     $span->recordException($exception, [TraceAttributes::EXCEPTION_ESCAPED => true]);
                     $span->setStatus(StatusCode::STATUS_ERROR, $exception->getMessage());
                 }
+
                 if ($response) {
                     if ($response->getStatusCode() >= 400) {
                         $span->setStatus(StatusCode::STATUS_ERROR);
@@ -141,5 +144,17 @@ class HttpInstrumentation
         }
 
         return '';
+    }
+
+    private static function resolveAction(Application $app, $request)
+    {
+        $method = $request->method();
+        $path = $request->path();
+
+        $key = "{$method}/{$path}";
+        $route = $app->router->getRoutes()[$key] ?? null;
+        return $route
+            ? explode('@', $route['action']['uses'])
+            : [];
     }
 }

@@ -29,7 +29,10 @@ class ClientRequestWatcher extends Watcher
     ) {
     }
 
-    /** @psalm-suppress UndefinedInterfaceMethod */
+    /**
+     * @psalm-suppress UndefinedInterfaceMethod
+     * @suppress PhanTypeArraySuspicious
+     */
     public function register(Application $app): void
     {
         $app['events']->listen(RequestSending::class, [$this, 'recordRequest']);
@@ -39,16 +42,18 @@ class ClientRequestWatcher extends Watcher
 
     /**
      * @psalm-suppress ArgumentTypeCoercion
+     * @psalm-suppress PossiblyUnusedMethod
+     * @suppress PhanEmptyFQSENInCallable,PhanUndeclaredFunctionInCallable
      */
     public function recordRequest(RequestSending $request): void
     {
-        $parsedUrl = collect(parse_url($request->request->url()));
+        $parsedUrl = collect(parse_url($request->request->url()) ?: []);
         $processedUrl = $parsedUrl->get('scheme', 'http') . '://' . $parsedUrl->get('host') . $parsedUrl->get('path', '');
 
         if ($parsedUrl->has('query')) {
             $processedUrl .= '?' . $parsedUrl->get('query');
         }
-        $span = $this->instrumentation->tracer()->spanBuilder($request->request->method() . ' ' . ($parsedUrl['host'] . $parsedUrl['path']  ?? ''))
+        $span = $this->instrumentation->tracer()->spanBuilder($request->request->method())
             ->setSpanKind(SpanKind::KIND_CLIENT)
             ->setAttributes([
                 TraceAttributes::HTTP_REQUEST_METHOD => $request->request->method(),
@@ -62,6 +67,7 @@ class ClientRequestWatcher extends Watcher
         $this->spans[$this->createRequestComparisonHash($request->request)] = $span;
     }
 
+    /** @psalm-suppress PossiblyUnusedMethod */
     public function recordConnectionFailed(ConnectionFailed $request): void
     {
         $requestHash = $this->createRequestComparisonHash($request->request);
@@ -77,6 +83,7 @@ class ClientRequestWatcher extends Watcher
         unset($this->spans[$requestHash]);
     }
 
+    /** @psalm-suppress PossiblyUnusedMethod */
     public function recordResponse(ResponseReceived $request): void
     {
         $requestHash = $this->createRequestComparisonHash($request->request);
@@ -105,6 +112,12 @@ class ClientRequestWatcher extends Watcher
     private function maybeRecordError(SpanInterface $span, Response $response): void
     {
         if ($response->successful()) {
+            return;
+        }
+
+        // HTTP status code 3xx is not really error
+        // See https://www.rfc-editor.org/rfc/rfc9110.html#name-redirection-3xx
+        if ($response->redirect()) {
             return;
         }
 

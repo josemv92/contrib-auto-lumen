@@ -1,0 +1,73 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OpenTelemetry\Contrib\Instrumentation\Lumen\Hooks\Illuminate\Contracts\Console;
+
+use Illuminate\Console\Command;
+use Illuminate\Contracts\Console\Kernel as KernelContract;
+use OpenTelemetry\API\Trace\Span;
+use OpenTelemetry\API\Trace\SpanKind;
+use OpenTelemetry\API\Trace\StatusCode;
+use OpenTelemetry\Context\Context;
+use OpenTelemetry\Contrib\Instrumentation\Lumen\Hooks\Illuminate\Queue\AttributesBuilder;
+use OpenTelemetry\Contrib\Instrumentation\Lumen\Hooks\LumenHook;
+use OpenTelemetry\Contrib\Instrumentation\Lumen\Hooks\LumenHookTrait;
+use OpenTelemetry\Contrib\Instrumentation\Lumen\Hooks\PostHookTrait;
+use OpenTelemetry\Contrib\Instrumentation\Lumen\LumenInstrumentation;
+use function OpenTelemetry\Instrumentation\hook;
+use OpenTelemetry\SemConv\TraceAttributes;
+use Throwable;
+
+class Kernel implements LumenHook
+{
+    use AttributesBuilder;
+    use LumenHookTrait;
+    use PostHookTrait;
+
+    public function instrument(): void
+    {
+        if (LumenInstrumentation::shouldTraceCli()) {
+            $this->hookHandle();
+        }
+    }
+
+    /** @psalm-suppress UnusedReturnValue  */
+    private function hookHandle(): bool
+    {
+        return hook(
+            KernelContract::class,
+            'handle',
+            pre: function (KernelContract $kernel, array $params, string $class, string $function, ?string $filename, ?int $lineno) {
+                /** @psalm-suppress ArgumentTypeCoercion */
+                $builder = $this->instrumentation
+                    ->tracer()
+                    ->spanBuilder('Artisan handler')
+                    ->setSpanKind(SpanKind::KIND_SERVER)
+                    ->setAttribute(TraceAttributes::CODE_FUNCTION_NAME, sprintf('%s::%s', $class, $function))
+                    ->setAttribute(TraceAttributes::CODE_FILE_PATH, $filename)
+                    ->setAttribute(TraceAttributes::CODE_LINE_NUMBER, $lineno);
+
+                $parent = Context::getCurrent();
+                $span = $builder->startSpan();
+                Context::storage()->attach($span->storeInContext($parent));
+
+                return $params;
+            },
+            post: function (KernelContract $kernel, array $params, ?int $exitCode, ?Throwable $exception) {
+                $scope = Context::storage()->scope();
+                if (!$scope) {
+                    return;
+                }
+
+                $span = Span::fromContext($scope->context());
+
+                if ($exitCode !== Command::SUCCESS) {
+                    $span->setStatus(StatusCode::STATUS_ERROR);
+                }
+
+                $this->endSpan($exception);
+            }
+        );
+    }
+}

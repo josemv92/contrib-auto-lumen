@@ -17,10 +17,12 @@ class ExceptionWatcher extends Watcher
     /** @psalm-suppress UndefinedInterfaceMethod */
     public function register(Application $app): void
     {
+        /** @phan-suppress-next-line PhanTypeArraySuspicious */
         $app['events']->listen(MessageLogged::class, [$this, 'recordException']);
     }
     /**
      * Record an exception.
+     * @psalm-suppress PossiblyUnusedMethod
      */
     public function recordException(MessageLogged $log): void
     {
@@ -36,7 +38,7 @@ class ExceptionWatcher extends Watcher
             return;
         }
         $span = Span::fromContext($scope->context());
-        $span->recordException($exception, [TraceAttributes::EXCEPTION_ESCAPED => true]);
+        $span->recordException($exception);
         $span->setStatus(StatusCode::STATUS_ERROR, $exception->getMessage());
     }
 }

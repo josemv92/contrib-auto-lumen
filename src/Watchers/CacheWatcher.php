@@ -15,7 +15,10 @@ use OpenTelemetry\Context\Context;
 
 class CacheWatcher extends Watcher
 {
-    /** @psalm-suppress UndefinedInterfaceMethod */
+    /**
+     * @psalm-suppress UndefinedInterfaceMethod
+     * @suppress PhanTypeArraySuspicious
+     */
     public function register(Application $app): void
     {
         $app['events']->listen(CacheHit::class, [$this, 'recordCacheHit']);
@@ -25,6 +28,7 @@ class CacheWatcher extends Watcher
         $app['events']->listen(KeyForgotten::class, [$this, 'recordCacheForget']);
     }
 
+    /** @psalm-suppress PossiblyUnusedMethod */
     public function recordCacheHit(CacheHit $event): void
     {
         $this->addEvent('cache hit', [
@@ -33,6 +37,7 @@ class CacheWatcher extends Watcher
         ]);
     }
 
+    /** @psalm-suppress PossiblyUnusedMethod */
     public function recordCacheMiss(CacheMissed $event): void
     {
         $this->addEvent('cache miss', [
@@ -40,7 +45,11 @@ class CacheWatcher extends Watcher
             'tags' => json_encode($event->tags),
         ]);
     }
-    /** @psalm-suppress UndefinedPropertyFetch */
+    /**
+     * @psalm-suppress UndefinedPropertyFetch
+     * @psalm-suppress PossiblyUnusedMethod
+     * @suppress PhanUndeclaredProperty
+     */
     public function recordCacheSet(KeyWritten $event): void
     {
         $ttl = property_exists($event, 'minutes')
@@ -62,6 +71,7 @@ class CacheWatcher extends Watcher
         ]);
     }
 
+    /** @psalm-suppress PossiblyUnusedMethod */
     public function recordCacheForget(KeyForgotten $event): void
     {
         $this->addEvent('cache forget', [
